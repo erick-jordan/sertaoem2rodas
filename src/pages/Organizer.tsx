@@ -152,6 +152,7 @@ export function checkinUrl(ev: S2REvent) {
 function CheckinTab({ ev }: { ev: S2REvent }) {
   const toast = useToast();
   const [qr, setQr] = useState('');
+  const [posterImg, setPoster] = useState('');
   const url = checkinUrl(ev);
   useEffect(() => {
     QRCode.toDataURL(url, { margin: 1, width: 600, errorCorrectionLevel: 'M' }).then(setQr);
@@ -184,6 +185,7 @@ function CheckinTab({ ev }: { ev: S2REvent }) {
     ctx.fillStyle = '#000';
     ctx.font = '700 48px "Barlow Semi Condensed", Arial';
     ctx.fillText(SITE, c.width / 2, c.height - 45);
+    setPoster(c.toDataURL('image/png'));
     c.toBlob((b) => b && shareOrDownload(b, `checkin-${ev.slug}.png`, ev.name));
   };
 
@@ -218,13 +220,20 @@ function CheckinTab({ ev }: { ev: S2REvent }) {
               Baixar cartaz para imprimir
             </button>
             {__DEMO_BUILD__ && (
-              <a className="btn small" href={url}>
+              <Link className="btn small" to={`/checkin/${ev.id}/${ev.checkin.token}`}>
                 Simular leitura do QR
-              </a>
+              </Link>
             )}
           </div>
         </div>
       </div>
+
+      {posterImg && (
+        <figure style={{ margin: '12px 0 0' }}>
+          <img src={posterImg} alt="Cartaz de check-in para imprimir" style={{ maxWidth: 260, border: '1px solid var(--rule)' }} />
+          <figcaption className="hint">Cartaz A4 com o QR Code. No site, o arquivo é baixado para imprimir.</figcaption>
+        </figure>
+      )}
 
       <h2>Sorteio</h2>
       <DrawBox ev={ev} />

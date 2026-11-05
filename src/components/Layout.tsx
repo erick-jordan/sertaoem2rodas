@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { BRAND, SITE } from '../lib/brand';
 import { currentUser, demoSwitchUser, hasRole, resetDemo, useStore } from '../data/store';
 
@@ -58,6 +58,7 @@ export function Layout() {
 function DemoBar() {
   const users = useStore((s) => s.users);
   const sid = useStore((s) => s.sessionUserId);
+  const [sure, setSure] = useState(false);
   const options = [
     { id: '', label: 'Visitante (sem cadastro)' },
     { id: 'u-r5', label: 'Motociclista — Ana Paula' },
@@ -85,10 +86,13 @@ function DemoBar() {
       </select>
       <button
         onClick={() => {
-          if (confirm('Voltar os dados de exemplo ao estado inicial?')) resetDemo();
+          if (!sure) return setSure(true);
+          resetDemo();
+          setSure(false);
         }}
+        onBlur={() => setSure(false)}
       >
-        Restaurar
+        {sure ? 'Confirmar' : 'Restaurar'}
       </button>
     </div>
   );

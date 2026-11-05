@@ -334,7 +334,9 @@ export async function stampBanner(srcDataUrl: string): Promise<string> {
   return c.toDataURL('image/jpeg', 0.9);
 }
 
-export async function shareOrDownload(blob: Blob, filename: string, text: string) {
+export async function shareOrDownload(blob: Blob, filename: string, text: string): Promise<'shared' | 'downloaded' | 'demo'> {
+  // Na prévia do protótipo, downloads e compartilhamento são bloqueados: a imagem fica na tela.
+  if (__DEMO_BUILD__) return 'demo';
   const file = new File([blob], filename, { type: blob.type });
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
   if (nav.canShare?.({ files: [file] })) {

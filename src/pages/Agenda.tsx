@@ -208,7 +208,7 @@ function ShareAgendaModal({ events, all, uf, onClose }: { events: S2REvent[]; al
     if (!blob) return;
     trackAgendaShare();
     const r = await shareOrDownload(blob, 'agenda-sertaoem2rodas.png', `Agenda de eventos de motociclismo · ${SITE}`);
-    toast(r === 'shared' ? 'Agenda enviada.' : 'Imagem baixada. Agora é só mandar no grupo.');
+    toast(r === 'shared' ? 'Agenda enviada.' : r === 'demo' ? 'No site, abre o WhatsApp. Aqui: toque e segure a imagem para salvar.' : 'Imagem baixada. Agora é só mandar no grupo.');
   };
 
   return (

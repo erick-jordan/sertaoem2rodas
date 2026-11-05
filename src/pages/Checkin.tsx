@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { formatLongRange } from '../domain/dates';
-import { currentUser, doCheckin, setEventSubscription, toggleGoing, upcomingEvents, useStore, type CheckinResult } from '../data/store';
-import { IconBell, IconCheck, useTitle, useToast } from '../components/ui';
+import { EVENT_CONSENT_TEXT, currentUser, doCheckin, setEventSubscription, toggleGoing, upcomingEvents, useStore, type CheckinResult } from '../data/store';
+import { IconBell, IconCheck, Modal, useTitle, useToast } from '../components/ui';
 
 /** Destino do QR Code impresso pelo organizador: /checkin/{evento}/{token} */
 export function CheckinPage() {
@@ -67,6 +67,7 @@ export function CheckinPage() {
 function NextEvent({ excludeId }: { excludeId: string }) {
   const me = useStore(currentUser)!;
   const toast = useToast();
+  const [ask, setAsk] = useState(false);
   const next = useStore((s) => upcomingEvents(s).find((e) => e.id !== excludeId && e.status === 'confirmado' && e.startDate > new Date().toISOString().slice(0, 10)), [excludeId]);
   const going = useStore((s) => !!next && s.going.some((g) => g.eventId === next.id && g.userId === me.id), [next, me]);
   const sub = useStore((s) => !!next && s.subs.some((x) => x.eventId === next.id && x.userId === me.id && !x.revokedAt), [next, me]);
@@ -94,14 +95,29 @@ function NextEvent({ excludeId }: { excludeId: string }) {
           className={`btn ${sub ? 'on' : ''}`}
           aria-pressed={sub}
           onClick={() => {
-            if (!sub && !confirm('Receber no WhatsApp as alterações e novidades deste evento? Você pode cancelar quando quiser.')) return;
-            setEventSubscription(next.id, !sub);
-            toast(sub ? 'Avisos cancelados.' : 'Inscrição confirmada.');
+            if (!sub) return setAsk(true);
+            setEventSubscription(next.id, false);
+            toast('Avisos cancelados.');
           }}
         >
           <IconBell /> Receba atualizações
         </button>
       </div>
+      {ask && (
+        <Modal title="Receber atualizações" onClose={() => setAsk(false)}>
+          <p className="notice">{EVENT_CONSENT_TEXT}</p>
+          <button
+            className="btn primary block"
+            onClick={() => {
+              setEventSubscription(next.id, true);
+              setAsk(false);
+              toast('Inscrição confirmada.');
+            }}
+          >
+            Confirmo, quero receber
+          </button>
+        </Modal>
+      )}
       <p style={{ marginTop: 16 }}>
         <Link className="btn dark block" to="/">
           Ver a agenda completa

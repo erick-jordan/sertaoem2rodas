@@ -73,6 +73,8 @@ function useUserName() {
 function Pending({ events }: { events: S2REvent[] }) {
   const name = useUserName();
   const toast = useToast();
+  const [refusing, setRefusing] = useState<string | null>(null);
+  const [reason, setReason] = useState('');
   if (!events.length) return <p className="hint">Nenhum evento aguardando aprovação.</p>;
   return (
     <div className="list">
@@ -93,21 +95,33 @@ function Pending({ events }: { events: S2REvent[] }) {
             >
               Aprovar
             </button>
-            <button
-              className="btn small danger"
-              onClick={() => {
-                const r = prompt('Motivo da recusa (o organizador vai ver):');
-                if (r === null) return;
-                decideApproval(e.id, false, r || 'Dados incompletos.');
-                toast('Evento recusado.');
-              }}
-            >
+            <button className="btn small danger" onClick={() => setRefusing(refusing === e.id ? null : e.id)}>
               Recusar
             </button>
             <Link className="btn small" to={`/organizador/evento/${e.id}/editar`}>
               Revisar dados
             </Link>
           </div>
+          {refusing === e.id && (
+            <form
+              className="form"
+              onSubmit={(x) => {
+                x.preventDefault();
+                decideApproval(e.id, false, reason.trim() || 'Dados incompletos.');
+                setRefusing(null);
+                setReason('');
+                toast('Evento recusado.');
+              }}
+            >
+              <div className="field">
+                <label htmlFor={`rr-${e.id}`}>Motivo da recusa (o organizador vai ver)</label>
+                <input id={`rr-${e.id}`} type="text" value={reason} onChange={(x) => setReason(x.target.value)} placeholder="Ex.: falta a data de término" />
+              </div>
+              <button className="btn small danger" type="submit">
+                Confirmar recusa
+              </button>
+            </form>
+          )}
         </div>
       ))}
     </div>
@@ -363,7 +377,11 @@ function Channel() {
         >
           Copiar texto
         </button>
-        <button className="btn" disabled={!img} onClick={() => img && shareOrDownload(img.blob, 'agenda-semana.png', text)}>
+        <button
+          className="btn"
+          disabled={!img}
+          onClick={async () => img && (await shareOrDownload(img.blob, 'agenda-semana.png', text)) === 'demo' && toast('Na prévia, toque e segure a imagem para salvar.')}
+        >
           Baixar imagem
         </button>
       </div>
