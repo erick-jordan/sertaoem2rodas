@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import type { Place, S2REvent } from '../domain/types';
 import { formatLongRange, todayISO } from '../domain/dates';
 import { directionsLinks } from '../domain/geo';
@@ -8,7 +8,8 @@ import {
   trackDirections, trackView, useStore,
 } from '../data/store';
 import { eventArt } from '../lib/art';
-import { IconBell, IconChat, IconCamera, IconCheck, IconPhone, IconRoute, Modal, useTitle, useToast } from '../components/ui';
+import { IconBell, IconChat, IconCamera, IconCheck, IconPhone, IconRoute, IconShare, Modal, useTitle, useToast } from '../components/ui';
+import { EuVouModal } from '../components/EuVouModal';
 
 const KIND_LABEL: Record<Place['kind'], string> = {
   evento: 'Local do evento', camping: 'Camping', hospedagem: 'Hospedagem', alimentacao: 'Alimentação', apoio: 'Ponto de apoio',
@@ -25,6 +26,8 @@ export function EventPage() {
   const toast = useToast();
   const [consent, setConsent] = useState(false);
   const [claim, setClaim] = useState(false);
+  const location = useLocation();
+  const [euVou, setEuVou] = useState<boolean>(!!(location.state as { euVouArt?: boolean } | null)?.euVouArt);
   useTitle(ev?.name ?? 'Evento');
 
   useEffect(() => {
@@ -80,7 +83,8 @@ export function EventPage() {
               onClick={() => {
                 if (!me) return needLogin('euvou');
                 toggleGoing(ev.id);
-                toast(going ? 'Você saiu da lista de presença.' : 'Pronto: o organizador sabe que você vai.');
+                if (going) toast('Você saiu da lista de presença.');
+                else setEuVou(true);
               }}
             >
               {going ? <IconCheck /> : null}
@@ -100,6 +104,11 @@ export function EventPage() {
               <IconBell /> {subscribed ? 'Recebendo atualizações' : 'Receba atualizações'}
             </button>
           </div>
+          {going && (
+            <button className="btn green block" onClick={() => setEuVou(true)}>
+              <IconShare /> Gerar minha arte “Eu vou”
+            </button>
+          )}
           <p className="hint">
             {ev.counters.going > 0 && `${ev.counters.going} ${ev.counters.going === 1 ? 'pessoa vai' : 'pessoas vão'}. `}
             {going && 'Você está na lista do organizador.'}
@@ -220,6 +229,7 @@ export function EventPage() {
         </Modal>
       )}
       {claim && <ClaimModal ev={ev} onClose={() => setClaim(false)} />}
+      {euVou && me && going && <EuVouModal ev={ev} me={me} onClose={() => setEuVou(false)} />}
     </article>
   );
 }

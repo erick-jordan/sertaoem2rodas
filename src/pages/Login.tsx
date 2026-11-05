@@ -35,7 +35,7 @@ export function LoginPage() {
         toast('Pronto: o organizador sabe que você vai.');
       }
     }
-    nav(volta, { replace: true });
+    nav(volta, { replace: true, state: acao === 'euvou' ? { euVouArt: true } : undefined });
   };
 
   const sendCode = (e: React.FormEvent) => {

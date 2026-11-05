@@ -408,6 +408,7 @@ function NumbersTab({ ev }: { ev: S2REvent }) {
     [c.views, 'visualizações da página'],
     [c.directionsClicks, 'cliques em "Como chegar"'],
     [c.going, 'toques em "Eu vou"'],
+    [c.euVouShares ?? 0, 'artes "Eu vou" compartilhadas'],
     [c.subscribers, 'inscritos para atualizações'],
     [c.checkins, 'check-ins'],
   ];

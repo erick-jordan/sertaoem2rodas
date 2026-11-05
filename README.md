@@ -21,6 +21,7 @@ antes de ligar o back-end (Firebase).
 | 3.8 | Sorteio entre check-ins e "Quem veio de mais longe" |
 | 3.9 | Registro de inscritos por evento e da agenda; texto e imagem da semana para o Canal do WhatsApp |
 | 3.10 | Arte automática do evento em feed (4:5) e story (9:16) |
+| Fase 2 (antecipada) | Arte "Eu vou" para os stories: abre ao tocar em "Eu vou", usa o banner e a cor do evento, círculo com a foto ou o brasão do motoclube |
 | 3.12 | Métricas do admin e do organizador |
 | 3.13 | PWA: "Adicionar à tela inicial" |
 | 3.14 | Termos de Uso e Política de Privacidade (rascunho do Anexo C), aceite no cadastro |

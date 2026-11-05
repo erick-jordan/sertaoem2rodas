@@ -363,3 +363,203 @@ export function dataUrlToBlob(d: string): Blob {
   for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
   return new Blob([arr], { type: mime });
 }
+
+// ------------------------------------------------------------------ arte "Eu vou" / "Eu fui"
+
+/**
+ * Cor de destaque tirada do próprio banner do evento (a arte "Eu vou" usa a
+ * identidade do evento, não a do S2R). Média dos pixels saturados e claros.
+ */
+function accentFrom(img: HTMLImageElement): string {
+  const c = document.createElement('canvas');
+  c.width = 48;
+  c.height = 60;
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  const d = ctx.getImageData(0, 0, c.width, c.height).data;
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    const R = d[i], G = d[i + 1], B = d[i + 2];
+    const max = Math.max(R, G, B), min = Math.min(R, G, B);
+    const sat = max ? (max - min) / max : 0;
+    if (sat > 0.45 && max > 110) {
+      r += R; g += G; b += B; n++;
+    }
+  }
+  if (n < 20) return COLORS.orange;
+  // clareia até ficar legível sobre fundo escuro
+  let [R, G, B] = [r / n, g / n, b / n];
+  const lum = 0.2126 * R + 0.7152 * G + 0.0722 * B;
+  if (lum < 140) {
+    const k = 140 / Math.max(lum, 1);
+    [R, G, B] = [R, G, B].map((v) => Math.min(255, v * k));
+  }
+  return `rgb(${R | 0}, ${G | 0}, ${B | 0})`;
+}
+
+function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number, h: number) {
+  const r = Math.max(w / img.width, h / img.height);
+  const dw = img.width * r;
+  const dh = img.height * r;
+  ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+}
+
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+export interface EuVouArtOpts {
+  event: Pick<S2REvent, 'name' | 'startDate' | 'endDate' | 'city' | 'uf' | 'crestUrl' | 'bannerUrl' | 'instagram'>;
+  /** Foto da pessoa ou brasão do motoclube, escolhido na hora de gerar. */
+  circleUrl?: string;
+  /** Iniciais quando não há imagem para o círculo. */
+  initials: string;
+  variant?: 'vou' | 'fui';
+}
+
+/**
+ * Arte "Eu vou" para os stories (9:16), no modelo do Anexo B (B4):
+ * identidade do próprio evento (banner), "EU VOU!! E VOCÊ?", círculo com a foto
+ * ou o brasão, faixa com cidade/UF, datas e @ do evento, e a assinatura discreta do S2R.
+ */
+export async function euVouArt({ event: e, circleUrl, initials, variant = 'vou' }: EuVouArtOpts): Promise<string> {
+  await fontsReady();
+  const H = 1920;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext('2d')!;
+
+  const banner = await loadImage(e.bannerUrl ?? (await eventArt(e, 'feed')));
+  const accent = e.bannerUrl ? accentFrom(banner) : COLORS.orange;
+  const seal = await loadImage(BRAND.seal);
+
+  // fundo: o próprio banner, ampliado, desfocado e escurecido
+  ctx.fillStyle = COLORS.ink;
+  ctx.fillRect(0, 0, W, H);
+  ctx.save();
+  ctx.filter = 'blur(38px) brightness(0.45) saturate(1.2)';
+  drawCover(ctx, banner, W, H);
+  ctx.restore();
+  const shade = ctx.createLinearGradient(0, H * 0.45, 0, H);
+  shade.addColorStop(0, 'rgba(0,0,0,0)');
+  shade.addColorStop(1, 'rgba(0,0,0,0.85)');
+  ctx.fillStyle = shade;
+  ctx.fillRect(0, 0, W, H);
+
+  // banner inteiro no topo, sem cortar datas nem textos
+  const bw = 820;
+  const bh = Math.min(860, (banner.height / banner.width) * bw);
+  const bwFit = (banner.width / banner.height) * bh;
+  const bx = (W - bwFit) / 2;
+  const by = 90;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowBlur = 40;
+  ctx.shadowOffsetY = 12;
+  roundRect(ctx, bx, by, bwFit, bh, 18);
+  ctx.fillStyle = '#000';
+  ctx.fill();
+  ctx.restore();
+  ctx.save();
+  roundRect(ctx, bx, by, bwFit, bh, 18);
+  ctx.clip();
+  ctx.drawImage(banner, bx, by, bwFit, bh);
+  ctx.restore();
+
+  // círculo com a foto ou o brasão, sobrepondo a borda do banner
+  const R = 170;
+  const cx = W / 2;
+  const cy = by + bh + 20;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R + 12, 0, Math.PI * 2);
+  ctx.fillStyle = accent;
+  ctx.fill();
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.clip();
+  if (circleUrl) {
+    try {
+      const face = await loadImage(circleUrl);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+      const r = Math.max((R * 2) / face.width, (R * 2) / face.height);
+      ctx.drawImage(face, cx - (face.width * r) / 2, cy - (face.height * r) / 2, face.width * r, face.height * r);
+    } catch {
+      circleUrl = undefined;
+    }
+  }
+  if (!circleUrl) {
+    ctx.fillStyle = '#1b1b1b';
+    ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+    ctx.fillStyle = '#fff';
+    ctx.font = `italic 800 150px ${COND}`;
+    ctx.textAlign = 'center';
+    ctx.fillText(initials, cx, cy + 52);
+    ctx.textAlign = 'left';
+  }
+  ctx.restore();
+
+  // EU VOU!! / E VOCÊ?
+  ctx.textAlign = 'center';
+  const headline = variant === 'vou' ? 'EU VOU!!' : 'EU FUI!!';
+  let size = 250;
+  ctx.font = `italic 800 ${size}px ${COND}`;
+  while (ctx.measureText(headline).width > W - 120 && size > 120) {
+    size -= 8;
+    ctx.font = `italic 800 ${size}px ${COND}`;
+  }
+  let y = cy + R + 40 + size * 0.82;
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 14;
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.strokeText(headline, W / 2, y);
+  ctx.fillStyle = '#fff';
+  ctx.fillText(headline, W / 2, y);
+  if (variant === 'vou') {
+    y += 120;
+    ctx.font = `italic 800 112px ${COND}`;
+    ctx.strokeText('E VOCÊ?', W / 2, y);
+    ctx.fillStyle = accent;
+    ctx.fillText('E VOCÊ?', W / 2, y);
+  }
+
+  // faixa inferior: cidade/UF · datas · @ do evento
+  const bandH = 150;
+  const bandY = H - bandH - 130;
+  ctx.save();
+  roundRect(ctx, 60, bandY, W - 120, bandH, 20);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fill();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = accent;
+  ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = '#fff';
+  ctx.font = `700 52px ${SANS}`;
+  ctx.fillText(fitText(ctx, `${e.city} · ${e.uf}   ${formatLongRange(e.startDate, e.endDate).replace(/ de \d{4}$/, '')}`, W - 180), W / 2, bandY + 66);
+  ctx.fillStyle = accent;
+  ctx.font = `600 40px ${SANS}`;
+  ctx.fillText(fitText(ctx, e.instagram ?? e.name, W - 180), W / 2, bandY + 118);
+
+  // assinatura discreta do S2R no canto
+  const sw = 120;
+  const sh = (seal.height / seal.width) * sw;
+  ctx.globalAlpha = 0.9;
+  ctx.drawImage(seal, W - 60 - sw, H - 56 - sh, sw, sh);
+  ctx.fillStyle = '#d0d0d0';
+  ctx.font = `600 30px ${SANS}`;
+  ctx.textAlign = 'right';
+  ctx.fillText(SITE, W - 60 - sw - 20, H - 66);
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'left';
+
+  return c.toDataURL('image/png');
+}

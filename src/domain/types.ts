@@ -142,6 +142,8 @@ export interface EventCounters {
   going: number;
   subscribers: number;
   checkins: number;
+  /** Compartilhamentos da arte "Eu vou". */
+  euVouShares?: number;
 }
 
 // ---------------------------------------------------------------- interações

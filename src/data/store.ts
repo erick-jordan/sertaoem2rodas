@@ -421,6 +421,12 @@ export function trackView(id: string) {
 export function trackDirections(id: string) {
   commit((d) => void d.events.find((e) => e.id === id)!.counters.directionsClicks++);
 }
+export function trackEuVouShare(id: string) {
+  commit((d) => {
+    const ev = d.events.find((e) => e.id === id);
+    if (ev) ev.counters.euVouShares = (ev.counters.euVouShares ?? 0) + 1;
+  });
+}
 export function trackAgendaShare() {
   commit((d) => void d.agendaShares++);
 }
