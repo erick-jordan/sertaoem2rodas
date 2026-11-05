@@ -194,12 +194,13 @@ legend { font-weight: 700; padding: 0 6px; }
 .pin-ok { color: var(--ok); font-weight: 700; font-size: 14px; }
 
 /* ---------------------------------------------------------- painéis */
-.tabs { display: flex; gap: 4px; overflow-x: auto; border-bottom: 2px solid var(--ink); margin: 10px 0 14px; scrollbar-width: none; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 10px; border-bottom: 2px solid var(--ink); margin: 10px 0 14px; }
 .tabs button {
-  border: 0; background: none; padding: 10px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; color: var(--muted);
-  border-radius: 6px 6px 0 0;
+  border: 1.5px solid var(--rule); background: var(--paper); padding: 7px 11px; font-weight: 700; cursor: pointer;
+  white-space: nowrap; color: var(--ink); border-radius: 6px; font-size: 15px; line-height: 1.2;
 }
-.tabs button[aria-selected='true'] { background: var(--ink); color: var(--paper); }
+.tabs button:hover { border-color: var(--ink); }
+.tabs button[aria-selected='true'] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 .tabs .count { background: var(--orange); color: var(--ink); border-radius: 10px; padding: 0 6px; font-size: 13px; margin-left: 4px; }
 .list { display: grid; gap: 0; border-top: 1px solid var(--rule); }
 .item { padding: 12px 0; border-bottom: 1px solid var(--rule); display: grid; gap: 6px; }

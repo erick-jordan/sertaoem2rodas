@@ -36,9 +36,9 @@ export function AdminPage() {
   const tabs: [Tab, string, number?][] = [
     ['pendentes', 'Aprovar', pending.length],
     ['avisos', 'Notificações', unread],
-    ['pedidos', 'Pedidos de organizador', claims],
+    ['pedidos', 'Pedidos', claims],
     ['destaque', 'Destaque'],
-    ['eventos', 'Todos os eventos'],
+    ['eventos', 'Eventos'],
     ['canal', 'Canal do WhatsApp'],
     ['metricas', 'Métricas'],
   ];
