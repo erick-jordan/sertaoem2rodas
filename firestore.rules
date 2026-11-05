@@ -1,0 +1,97 @@
+rules_version = '2';
+
+// Regras do Firestore — Sertão em 2 Rodas
+// Princípio: leitura pública só do que é público (eventos aprovados).
+// Escritas sensíveis (check-in, sorteio, aprovação, contadores, pontos) passam
+// por Cloud Functions com o Admin SDK, que ignora estas regras.
+// Papéis vêm de custom claims do Firebase Auth: admin, moderator (+ ufs), organizer.
+
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isAdmin() { return signedIn() && request.auth.token.admin == true; }
+    // Fase 3: moderador aprova eventos das UFs dele
+    function isModeratorOf(uf) { return signedIn() && request.auth.token.moderator == true && uf in request.auth.token.ufs; }
+    function isOwner(ev) { return signedIn() && ev.ownerId == request.auth.uid; }
+    function unchanged(fields) { return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields); }
+
+    // ---------------- usuários: cada um lê e edita o próprio perfil (sem mexer em papéis e pontos)
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow update: if signedIn() && request.auth.uid == uid
+        && unchanged(['roles', 'points', 'phone', 'phoneVerifiedAt', 'badges', 'premium', 'moderatorUFs']);
+      // criação e exclusão: só pela Function de login (telefone validado) e de exclusão (LGPD)
+    }
+
+    // ---------------- eventos
+    match /events/{eventId} {
+      allow read: if resource.data.approval == 'aprovado' || isAdmin() || isOwner(resource.data) || isModeratorOf(resource.data.uf);
+
+      // organizador cria pendente, em nome próprio
+      allow create: if signedIn() && request.auth.token.organizer == true
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.approval == 'pendente'
+        && request.resource.data.featured == false;
+
+      // organizador edita livremente depois de aprovado; não mexe em aprovação, dono, destaque, contadores
+      allow update: if isAdmin()
+        || isModeratorOf(resource.data.uf) && unchanged(['ownerId', 'featured', 'sponsorship', 'counters'])
+        || isOwner(resource.data) && unchanged(['approval', 'ownerId', 'featured', 'sponsorship', 'counters', 'checkin.token', 'mergedInto']);
+
+      allow delete: if isAdmin();
+
+      // "Eu vou": cada um marca/desmarca o próprio
+      match /going/{uid} {
+        allow read: if isAdmin() || isOwner(get(/databases/$(db)/documents/events/$(eventId)).data);
+        allow create, delete: if signedIn() && request.auth.uid == uid;
+      }
+    }
+
+    // ---------------- inscrições de aviso (consentimento LGPD): o próprio usuário cria e revoga
+    match /subscriptions/{id} {
+      allow read: if isAdmin() || signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid && request.resource.data.consentAt is timestamp;
+      allow update: if signedIn() && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revokedAt']);
+    }
+
+    // ---------------- check-ins e sorteios: só leitura; escrita pelas Functions `checkin` e `draw`
+    match /checkins/{id} {
+      allow read: if isAdmin() || signedIn() && resource.data.userId == request.auth.uid
+        || isOwner(get(/databases/$(db)/documents/events/$(resource.data.eventId)).data);
+    }
+    match /draws/{id} {
+      allow read: if isAdmin() || isOwner(get(/databases/$(db)/documents/events/$(resource.data.eventId)).data);
+    }
+
+    // ---------------- "Sou o organizador deste evento"
+    match /claims/{id} {
+      allow create: if signedIn() && request.resource.data.claimantId == request.auth.uid && request.resource.data.state == 'pendente';
+      allow read: if isAdmin() || signedIn() && resource.data.claimantId == request.auth.uid;
+      allow update: if isAdmin();
+    }
+
+    // ---------------- painel do administrador
+    match /notices/{id} { allow read, update: if isAdmin(); }
+    match /metrics/{id} { allow read: if isAdmin(); }
+    match /cities/{id} { allow read: if true; }
+
+    // ---------------- Fase 3: motoclubes
+    match /clubs/{clubId} {
+      allow read: if true;
+      allow create: if signedIn();
+      allow update: if isAdmin();
+      match /members/{uid} {
+        allow read: if signedIn();
+        allow create: if signedIn() && request.auth.uid == uid && request.resource.data.state == 'pendente';
+        // aprovação pelo gestor: via Function `decideMembership`
+      }
+    }
+
+    // ---------------- Fase 4: pagamentos e mensagens — só servidor
+    match /payments/{id} { allow read: if isAdmin(); }
+    match /messageLog/{id} { allow read: if isAdmin(); }
+    match /packages/{id} { allow read: if isAdmin() || signedIn() && resource.data.organizerId == request.auth.uid; }
+  }
+}

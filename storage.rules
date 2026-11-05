@@ -1,0 +1,20 @@
+rules_version = '2';
+
+// Storage: banners, brasões e fotos de perfil.
+// Upload vai para /uploads; a Function `onImageUpload` aplica o selo do S2R,
+// guarda o original sem selo em /originals e publica em /public.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /public/{all=**} {
+      allow read: if true;
+    }
+    match /uploads/{uid}/{file} {
+      allow write: if request.auth != null && request.auth.uid == uid
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+    match /originals/{all=**} {
+      allow read, write: if false; // só servidor
+    }
+  }
+}
